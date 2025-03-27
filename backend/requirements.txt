@@ -1,0 +1,27 @@
+# Database and ORM
+sqlalchemy
+psycopg2-binary
+pgvector
+
+# FastAPI and related
+fastapi
+uvicorn
+pydantic
+
+# Vector operations
+numpy
+
+# Optional but recommended
+python-dotenv
+python-multipart
+
+# Tokenization & Transformation
+torch
+transformers
+
+
+llama-core
+llama-index
+llama-index-embeddings-huggingface
+
+pypdf
