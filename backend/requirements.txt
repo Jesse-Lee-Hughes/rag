@@ -13,7 +13,7 @@ numpy
 
 # Optional but recommended
 python-dotenv
-python-multipart
+python-multipart>=0.0.5
 
 # Tokenization & Transformation
 torch

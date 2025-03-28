@@ -1,0 +1,12 @@
+FROM python:3.9-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+# Set environment for development
+ENV STREAMLIT_SERVER_RUN_ON_SAVE=true
+
+# Command to run with hot-reload
+CMD ["streamlit", "run", "app.py", "--server.runOnSave", "true"] 

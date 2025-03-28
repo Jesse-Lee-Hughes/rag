@@ -30,7 +30,7 @@ class LlamaVectorizer:
 
         pdf_reader = pypdf.PdfReader(pdf_content)
         text = ' '.join(
-            page.extract_text().replace('\n\n', ' ').replace('\n', ' ')
+            page.extract_text().replace('\n\n', ' ').replace('\n', ' ').lower()
             for page in pdf_reader.pages if page.extract_text()
         )
 
@@ -39,7 +39,7 @@ class LlamaVectorizer:
 
         return text.strip()
 
-    def process_document(self, text, db_session):
+    def process_document(self, text, db_session, source_document=None):
         """Process text: chunking, embedding, and storing in database."""
         doc = Document(text=text)
         nodes = self.parser.get_nodes_from_documents([doc])
@@ -59,7 +59,12 @@ class LlamaVectorizer:
             else:
                 # Only generate embedding and insert if new
                 embedding = self.embed_model.get_text_embedding(node.text)
-                db_entry = E5Embedding(text=node.text, vector=embedding, text_hash=text_hash)
+                db_entry = E5Embedding(
+                    text=node.text, 
+                    vector=embedding, 
+                    text_hash=text_hash,
+                    source_document=source_document
+                )
                 db_session.add(db_entry)
                 db_session.commit()
                 results.append(db_entry)

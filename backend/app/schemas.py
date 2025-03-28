@@ -11,6 +11,7 @@ class EmbeddingResponse(BaseModel):
     text: str
     vector: List[float]
     metadata: Optional[Dict[str, Any]] = None
+    source_document: Optional[str] = None
 
 class EmbeddingListResponse(BaseModel):
     embeddings: List[EmbeddingResponse]

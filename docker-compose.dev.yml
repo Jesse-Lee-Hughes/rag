@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  db:
+    build:
+      context: ./db
+      dockerfile: Dockerfile
+    environment:
+      - POSTGRES_DB=rag_database
+      - POSTGRES_USER=raguser
+      - POSTGRES_PASSWORD=ragpassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev  # We'll create this
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    environment:
+      - DATABASE_URL=postgresql://raguser:ragpassword@db:5432/rag_database
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./backend:/app
+    networks:
+      - app-network
+
+  ui:
+    build: 
+      context: ./ui
+      dockerfile: Dockerfile.dev  # We'll create this
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./ui:/app
+    depends_on:
+      - backend
+    environment:
+      - BACKEND_URL=http://backend:8000
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:
+    driver: bridge 

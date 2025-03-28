@@ -42,6 +42,7 @@ class E5Embedding(BaseEmbedding):
     
     vector = Column(Vector(384))  # Specific dimension for E5 embeddings
     text_hash = Column(String, unique=True, index=True)
+    source_document = Column(String, nullable=True)
 
     def __init__(self, *args, **kwargs):
         if 'text' in kwargs:
@@ -53,7 +54,6 @@ class TestEmbedding(BaseEmbedding):
     __tablename__ = "embeddings_test"
     vector = Column(Vector(3))  # Small dimension for testing
 
-# Example usage
 def get_db():
     db = SessionLocal()
     try:
