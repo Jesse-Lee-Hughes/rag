@@ -18,7 +18,7 @@ class AzureOpenAIProvider(LLMProvider):
         api_key = os.getenv("AZURE_OPENAI_API_KEY")
         endpoint = os.getenv("AZURE_OPENAI_ENDPOINT", "").rstrip("/")
         api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2025-01-01-preview")
-        deployment_name = os.getenv("AZURE_OPENAI_MODEL", model)  # Ensure correct deployment name
+        deployment_name = os.getenv("AZURE_OPENAI_MODEL", model)
 
         if not all([api_key, endpoint, deployment_name]):
             raise ValueError("Missing required Azure OpenAI environment variables.")
@@ -29,7 +29,7 @@ class AzureOpenAIProvider(LLMProvider):
         self.client = AsyncOpenAI(
             api_key=api_key,
             base_url=base_url,
-            default_query={"api-version": api_version},  # Corrected from default_headers
+            default_query={"api-version": api_version},
         )
 
         self.model = deployment_name  # Ensure model matches deployment name

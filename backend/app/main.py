@@ -161,18 +161,26 @@ async def text_search(search_request: TextSearchRequest, db: Session = Depends(g
             )
             for result in results
             if float(result.similarity)
-            > 0.5  # Only include results with >50% similarity
+            > 0.8
         ]
 
         # Extract text from results for LLM context
         context = [result.text for result in formatted_results]
+   
+        if context:
+            prompt = """You are a helpful assistant that answers questions based on the provided context. 
+            Use the context to provide accurate, specific answers. If the context doesn't contain enough information 
+            to fully answer the question, acknowledge what you know from the context and indicate what's missing."""
+        else:
+            prompt = """You are a helpful assistant. Since no relevant context was found in the knowledge base 
+            (similarity < 80%), I'll answer based on my general knowledge. I'll explicitly acknowledge this and provide 
+            the best information I can, while being clear about the source of my information."""
 
         # Generate response using LLM
         response = await llm_provider.generate_response(
             query=search_request.query_text,
             context=context,
-            system_prompt="You are a helpful assistant that answers questions based on the provided context. "
-            "If the context doesn't contain enough information to answer the question, say so.",
+            system_prompt=prompt,
             temperature=0.7,
         )
 
