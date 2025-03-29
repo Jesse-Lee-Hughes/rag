@@ -2,19 +2,23 @@ import numpy as np
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from app.utils import LlamaVectorizer
-from app.database import engine, Base, get_db, E5Embedding
+from app.database import engine, Base, get_db, E5Embedding, Conversation
 from app.schemas import (
     EmbeddingResponse,
     VectorSearchRequest,
     EmbeddingListResponse,
     TextSearchRequest,
     LLMResponse,
+    ConversationHistory,
+    ConversationListResponse,
 )
 from llama_index.core import Document
 import os
 from sqlalchemy import text
 import tempfile
 from app.llm.factory import LLMFactory
+from app.memory import ConversationMemory
+from datetime import datetime
 
 
 # Initialize FastAPI app
@@ -128,6 +132,12 @@ def vector_search(search_request: VectorSearchRequest, db: Session = Depends(get
 @app.post("/search/text/", response_model=LLMResponse)
 async def text_search(search_request: TextSearchRequest, db: Session = Depends(get_db)):
     try:
+        # Initialize memory manager
+        memory = ConversationMemory(db)
+
+        # Create or use existing conversation ID
+        conversation_id = search_request.conversation_id or memory.create_conversation()
+
         # Get relevant documents using vector search
         doc = Document(text=search_request.query_text.lower())
         nodes = vectorizer.parser.get_nodes_from_documents([doc])
@@ -160,22 +170,40 @@ async def text_search(search_request: TextSearchRequest, db: Session = Depends(g
                 },
             )
             for result in results
-            if float(result.similarity)
-            > 0.8
+            if float(result.similarity) > 0.8
         ]
 
-        # Extract text from results for LLM context
+        # Extract text and similarity scores from results for LLM context
         context = [result.text for result in formatted_results]
-   
-        if context:
-            prompt = """You are a helpful assistant that answers questions based on the provided context. 
-            Use the context to provide accurate, specific answers. If the context doesn't contain enough information 
-            to fully answer the question, acknowledge what you know from the context and indicate what's missing."""
-        else:
-            prompt = """You are a helpful assistant. Since no relevant context was found in the knowledge base 
-            (similarity < 80%), I'll answer based on my general knowledge. I'll explicitly acknowledge this and provide 
-            the best information I can, while being clear about the source of my information."""
+        similarity_scores = [
+            float(result.metadata["similarity_score"]) for result in formatted_results
+        ]
 
+        # Get conversation history
+        history = memory.get_recent_history(
+            conversation_id, window_size=search_request.memory_window
+        )
+        history_text = memory.format_memory_for_prompt(history)
+
+        # Prepare system prompt with context and history
+        if context:
+            prompt = f"""You are a helpful assistant that answers questions based on the provided context and conversation history.
+            Use the context to provide accurate, specific answers. If the context doesn't contain enough information 
+            to fully answer the question, acknowledge what you know from the context and indicate what's missing.
+            
+            Previous conversation:
+            {history_text}
+            
+            Current context:
+            {' '.join(context)}"""
+        else:
+            prompt = f"""You are a helpful assistant. Since no relevant context was found in the knowledge base 
+            (similarity < 80%), I'll answer based on my general knowledge and conversation history.
+            
+            Previous conversation:
+            {history_text}
+            
+            I'll explicitly acknowledge this and provide the best information I can, while being clear about the source of my information."""
         # Generate response using LLM
         response = await llm_provider.generate_response(
             query=search_request.query_text,
@@ -184,8 +212,21 @@ async def text_search(search_request: TextSearchRequest, db: Session = Depends(g
             temperature=0.7,
         )
 
+        # Store the interaction in memory
+        memory.add_interaction(
+            conversation_id=conversation_id,
+            query=search_request.query_text,
+            response=response,
+            context_chunks=context,
+            similarity_scores=similarity_scores,
+            metadata={"timestamp": datetime.utcnow().isoformat()},
+        )
+
         return LLMResponse(
-            answer=response, sources=formatted_results, context_chunks=context
+            answer=response,
+            sources=formatted_results,
+            context_chunks=context,
+            conversation_id=conversation_id,
         )
 
     except Exception as e:
@@ -260,3 +301,63 @@ def delete_embeddings(db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+@app.get("/conversations/{conversation_id}", response_model=ConversationHistory)
+def get_conversation_history(conversation_id: str, db: Session = Depends(get_db)):
+    """Get the full history of a conversation."""
+    try:
+        memory = ConversationMemory(db)
+        turns = memory.get_recent_history(
+            conversation_id, window_size=100
+        )  # Get up to 100 turns
+        return ConversationHistory(turns=turns, total_turns=len(turns))
+    except Exception as e:
+        raise HTTPException(
+            status_code=400, detail=f"Error retrieving conversation history: {str(e)}"
+        )
+
+
+@app.delete("/conversations/{conversation_id}")
+def delete_conversation(conversation_id: str, db: Session = Depends(get_db)):
+    """Delete a conversation and all its turns."""
+    try:
+        db.query(Conversation).filter(
+            Conversation.conversation_id == conversation_id
+        ).delete()
+        db.commit()
+        return {"message": f"Successfully deleted conversation {conversation_id}"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=400, detail=f"Error deleting conversation: {str(e)}"
+        )
+
+
+@app.get("/conversations", response_model=ConversationListResponse)
+def list_conversations(db: Session = Depends(get_db)):
+    """List all conversations with their latest interaction."""
+    try:
+        # Get the latest turn for each conversation
+        latest_turns = (
+            db.query(Conversation)
+            .distinct(Conversation.conversation_id)
+            .order_by(Conversation.conversation_id, Conversation.timestamp.desc())
+            .all()
+        )
+
+        return ConversationListResponse(
+            conversations=[
+                {
+                    "id": turn.conversation_id,
+                    "last_query": turn.query,
+                    "last_response": turn.response,
+                    "timestamp": turn.timestamp,
+                }
+                for turn in latest_turns
+            ]
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=400, detail=f"Error listing conversations: {str(e)}"
+        )

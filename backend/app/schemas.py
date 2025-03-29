@@ -33,9 +33,38 @@ class DocumentConversionRequest(BaseModel):
 class TextSearchRequest(BaseModel):
     query_text: str
     top_k: int = 5
+    conversation_id: Optional[str] = None
+    memory_window: Optional[int] = 5  # Number of previous turns to include in context
 
 
 class LLMResponse(BaseModel):
     answer: str
     sources: List[EmbeddingResponse]
     context_chunks: List[str]
+    conversation_id: Optional[str] = None
+
+
+class ConversationTurn(BaseModel):
+    query: str
+    response: str
+    context_chunks: Optional[List[str]] = None
+    similarity_scores: Optional[List[float]] = None
+    timestamp: str
+    conversation_id: str
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class ConversationHistory(BaseModel):
+    turns: List[ConversationTurn]
+    total_turns: int
+
+
+class ConversationListItem(BaseModel):
+    id: str
+    last_query: str
+    last_response: str
+    timestamp: str
+
+
+class ConversationListResponse(BaseModel):
+    conversations: List[ConversationListItem]
