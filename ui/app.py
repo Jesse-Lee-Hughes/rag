@@ -124,40 +124,49 @@ if prompt := st.chat_input("What's on your mind?"):
 
     try:
         # Replace this URL with your actual backend API endpoint
-        API_URL = "http://backend:8000/search/text"
+        API_URL = "http://backend:8000/search/text/"
 
         # Send request to backend
         response = requests.post(API_URL, json={"query_text": prompt})
 
         if response.status_code == 200:
-            search_results = response.json()["embeddings"]
+            data = response.json()
+            search_results = data["sources"]
+            llm_response = data["answer"]
+            context_chunks = data["context_chunks"]
 
             # Format each result
             with st.chat_message("assistant"):
+                # Display LLM response first
+                st.markdown("### LLM Response:")
+                st.markdown(llm_response)
+                st.markdown("---")
+
+                # Display context chunks
+                st.markdown("### Context Chunks Used:")
+                for i, chunk in enumerate(context_chunks, 1):
+                    with st.expander(f"Context Chunk {i}"):
+                        st.markdown(chunk)
+                st.markdown("---")
+
+                # Display source documents
+                st.markdown("### Source Documents:")
                 if not search_results:
                     st.markdown("No relevant matches found.")
                 else:
                     for result in search_results:
                         text = result["text"]
                         source = result["source_document"] or "Unknown source"
-                        # Format similarity score as percentage
                         similarity = result.get("metadata", {}).get(
                             "similarity_score", 0
                         )
                         similarity_pct = f"{similarity:.1%}" if similarity else "N/A"
 
-                        # Display source and similarity
                         st.markdown(
                             f'🔍 Source: "{source}" (Relevance: {similarity_pct})'
                         )
-
-                        # Create truncated text and full text
-                        truncated_text = text[:100] + "..." if len(text) > 100 else text
-
-                        # Display text with expander
-                        with st.expander(f'💡 Text: "{truncated_text}"'):
+                        with st.expander(f'💡 Text: "{text[:100]}..."'):
                             st.markdown(f'"{text}"')
-
                         st.markdown("---")
 
             assistant_response = ""

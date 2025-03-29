@@ -25,3 +25,7 @@ llama-index
 llama-index-embeddings-huggingface
 
 pypdf
+
+# Added from the code block
+pandas
+openai
