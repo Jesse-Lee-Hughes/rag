@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from app.utils import LlamaVectorizer
@@ -274,6 +275,10 @@ async def text_search(search_request: TextSearchRequest, db: Session = Depends(g
             
             Current context:
             {' '.join(context)}"""
+
+            # Only include sources and source_links when we have context
+            sources = formatted_results
+            source_links = source_links
         else:
             prompt = f"""You are a helpful assistant called Mook. Since no relevant context was found in the knowledge base 
             (similarity < 80%), I'll answer based on my general knowledge and conversation history.
@@ -282,6 +287,10 @@ async def text_search(search_request: TextSearchRequest, db: Session = Depends(g
             {history_text}
             
             I'll explicitly acknowledge this and provide the best information I can, while being clear about the source of my information."""
+
+            # Set sources and source_links to empty when no context is found
+            sources = []
+            source_links = []
 
         # Generate response using LLM
         response = await llm_provider.generate_response(
@@ -303,11 +312,11 @@ async def text_search(search_request: TextSearchRequest, db: Session = Depends(g
 
         return LLMResponse(
             answer=response,
-            sources=formatted_results,
+            sources=sources,  # Use our conditional sources
             context_chunks=context,
             conversation_id=conversation_id,
             provider="Knowledge Base",
-            source_links=source_links,
+            source_links=source_links,  # Use our conditional source_links
         )
 
     except Exception as e:

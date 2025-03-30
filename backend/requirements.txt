@@ -19,12 +19,14 @@ python-multipart>=0.0.5
 torch
 transformers
 
-
+# LLM
 llama-core
 llama-index
 llama-index-embeddings-huggingface
 
+# document analysis
 pypdf
+openpyxl
 
 # Added from the code block
 pandas

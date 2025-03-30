@@ -184,16 +184,22 @@ if prompt := st.chat_input("Ask me anything."):
                 st.markdown("### Source Information")
                 if data.get("source_links"):
                     with st.expander("🔗 Source Links"):
+                        # Create a set to track unique links
+                        unique_links = set()
                         for link in data["source_links"]:
-                            metadata_str = ""
-                            if link.get("metadata"):
-                                metadata_items = [
-                                    f"{k}: {v}" for k, v in link["metadata"].items()
-                                ]
-                                metadata_str = f" ({', '.join(metadata_items)})"
-                            st.markdown(
-                                f"**{link['provider']}**: [{link['link']}]({link['link']}){metadata_str}"
-                            )
+                            # Only process if this link hasn't been seen
+                            if link["link"] not in unique_links:
+                                unique_links.add(link["link"])
+                                metadata_str = ""
+                                if link.get("metadata"):
+                                    metadata_items = [
+                                        f"{k}: {v}" for k, v in link["metadata"].items()
+                                    ]
+                                    metadata_str = f" ({', '.join(metadata_items)})"
+                                st.markdown(
+                                    f"**Provider: {link['provider']}** \n\n  **Source: [{link['link']}]** \n\n **Metadata:** {metadata_str}\n\n---\n\n"
+                                    
+                                )
                 else:
                     st.info("No source links available")
 
