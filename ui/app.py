@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 from io import BytesIO
 from datetime import datetime
+import pandas as pd
 
 
 # Add custom CSS at the app level
@@ -93,16 +94,26 @@ st.session_state.conversation_count = get_conversation_count()
 
 # Sidebar
 with st.sidebar:
-    st.title("Document Context")
 
     # Document statistics
     st.markdown("### Statistics")
-    st.markdown(f"**Total Embeddings:** {st.session_state.embedding_count}")
-    st.markdown(f"**Total Conversations:** {st.session_state.conversation_count}")
 
-    st.markdown("---")
+    # Create DataFrame with statistics
+    stats_data = {
+        "Metric": ["Total Embeddings", "Total Conversations"],
+        "Value": [
+            st.session_state.embedding_count,
+            st.session_state.conversation_count,
+        ],
+    }
+    stats_df = pd.DataFrame(stats_data)
+    st.dataframe(stats_df, hide_index=True)
 
-    # Conversation history
+    # Search results containers
+    st.markdown("### Search Results")
+    source_container = st.empty()
+    context_container = st.empty()
+
     st.markdown("### Conversation History")
     if st.session_state.conversation_id:
         try:
@@ -120,18 +131,12 @@ with st.sidebar:
             st.error("Error fetching conversation history")
     else:
         st.info("No active conversation")
-    # Clear memory button
     if st.button("🗑️ Clear Conversation Memory"):
         clear_conversation_memory()
-    st.markdown("---")
 
-    # Search results containers
-    st.markdown("### Search Results")
-    source_container = st.empty()
-    context_container = st.empty()
 
 # Main chat area
-st.title("Contextual Insight Engine")
+st.title("Ask Mook")
 
 # Display chat history
 for message in st.session_state.messages:
@@ -169,8 +174,8 @@ if prompt := st.chat_input("Ask me anything."):
                 st.session_state.conversation_count = get_conversation_count()
 
             # Display LLM response in main chat
-            with st.chat_message("assistant"):
-                st.write(llm_response)
+            with st.chat_message("assistant", avatar="🤖"):
+                st.markdown(f"**Mook**: {llm_response}")
                 if data.get("provider"):
                     st.markdown(f"*Source: {data['provider']}*")
 

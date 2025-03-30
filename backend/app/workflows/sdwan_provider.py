@@ -27,7 +27,7 @@ class SDWANWorkflowProvider(WorkflowProvider):
         query_lower = query.lower()
         return any(keyword in query_lower for keyword in self.keywords)
 
-    async def get_context(self) -> Dict[str, Any]:
+    async def get_context(self, query: str) -> Dict[str, Any]:
         """Get SD-WAN configuration context"""
         config = await self.sdwan_service.get_organization_config()
 

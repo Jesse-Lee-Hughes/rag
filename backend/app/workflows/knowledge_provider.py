@@ -31,7 +31,7 @@ class KnowledgeBaseWorkflowProvider(WorkflowProvider):
         query_lower = query.lower()
         return any(keyword in query_lower for keyword in self.keywords)
 
-    async def get_context(self) -> Dict[str, Any]:
+    async def get_context(self, query: str) -> Dict[str, Any]:
         """Get relevant documents from vector store"""
         # Create document from query
         doc = Document(text=query.lower())

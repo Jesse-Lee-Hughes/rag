@@ -44,7 +44,9 @@ sdwan_service = SDWANService(base_url="http://mock_sdwan:8080")
 # Initialize workflow manager
 workflow_manager = WorkflowManager()
 workflow_manager.register_provider(SDWANWorkflowProvider())
-workflow_manager.register_provider(KnowledgeBaseWorkflowProvider(get_db(), vectorizer))
+workflow_manager.register_provider(
+    KnowledgeBaseWorkflowProvider(next(get_db()), vectorizer)
+)
 
 
 @app.post("/ingest/pdf_url", response_model=EmbeddingListResponse)
@@ -147,11 +149,6 @@ async def text_search(search_request: TextSearchRequest, db: Session = Depends(g
         # Initialize memory manager first
         memory = ConversationMemory(db)
         conversation_id = search_request.conversation_id or memory.create_conversation()
-
-        # Register knowledge provider with current session
-        workflow_manager.register_provider(
-            KnowledgeBaseWorkflowProvider(db, vectorizer)
-        )
 
         # Check for workflow provider
         provider = await workflow_manager.get_provider(search_request.query_text)
@@ -268,7 +265,7 @@ async def text_search(search_request: TextSearchRequest, db: Session = Depends(g
 
         # Prepare system prompt with context and history
         if context:
-            prompt = f"""You are a helpful assistant that answers questions based on the provided context and conversation history.
+            prompt = f"""You are a helpful assistant called Mook that answers questions based on the provided context and conversation history.
             Use the context to provide accurate, specific answers. If the context doesn't contain enough information 
             to fully answer the question, acknowledge what you know from the context and indicate what's missing.
             
@@ -278,7 +275,7 @@ async def text_search(search_request: TextSearchRequest, db: Session = Depends(g
             Current context:
             {' '.join(context)}"""
         else:
-            prompt = f"""You are a helpful assistant. Since no relevant context was found in the knowledge base 
+            prompt = f"""You are a helpful assistant called Mook. Since no relevant context was found in the knowledge base 
             (similarity < 80%), I'll answer based on my general knowledge and conversation history.
             
             Previous conversation:

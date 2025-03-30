@@ -12,7 +12,7 @@ class WorkflowProvider(ABC):
         pass
 
     @abstractmethod
-    async def get_context(self) -> Dict[str, Any]:
+    async def get_context(self, query: str) -> Dict[str, Any]:
         """Get relevant context for the query"""
         pass
 
@@ -28,7 +28,7 @@ class WorkflowProvider(ABC):
         conversation_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Handle the query with optional memory support"""
-        context = await self.get_context()
+        context = await self.get_context(query)
 
         # Get conversation history if memory is available
         history_text = ""
