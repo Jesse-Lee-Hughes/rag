@@ -56,6 +56,15 @@ services:
     networks:
       - app-network
 
+  mock_servicenow:
+    build:
+      context: ./mock_snow
+      dockerfile: Dockerfile
+    ports:
+      - "8082:8082"
+    networks:
+      - app-network
+
 volumes:
   postgres_data:
 

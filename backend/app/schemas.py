@@ -34,7 +34,7 @@ class TextSearchRequest(BaseModel):
     query_text: str
     top_k: int = 5
     conversation_id: Optional[str] = None
-    memory_window: Optional[int] = 5  # Number of previous turns to include in context
+    memory_window: int = 5  # Number of previous turns to include in context
 
 
 class SourceLink(BaseModel):

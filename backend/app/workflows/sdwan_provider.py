@@ -31,6 +31,29 @@ class SDWANWorkflowProvider(WorkflowProvider):
         """Get SD-WAN configuration context"""
         config = await self.sdwan_service.get_organization_config()
 
+        # Format context chunks from config
+        context_chunks = []
+        for device in config.get("organization", {}).get("devices", []):
+            device_context = f"Device: {device['name']}\n"
+            device_context += f"Model: {device['model']}\n"
+            device_context += f"Status: {device['status']}\n"
+
+            # Add VLAN information
+            if "config" in device and "vlans" in device["config"]:
+                device_context += "VLANs:\n"
+                for vlan in device["config"]["vlans"]:
+                    device_context += (
+                        f"- {vlan['name']} (VLAN {vlan['id']}): {vlan['ip']}\n"
+                    )
+
+            # Add interface information
+            if "config" in device and "interfaces" in device["config"]:
+                device_context += "Interfaces:\n"
+                for interface in device["config"]["interfaces"]:
+                    device_context += f"- {interface['name']}: {interface['ip']} ({interface['status']})\n"
+
+            context_chunks.append(device_context)
+
         # Create source links for each device
         source_links = []
         for device in config.get("organization", {}).get("devices", []):
@@ -46,7 +69,11 @@ class SDWANWorkflowProvider(WorkflowProvider):
                 )
             )
 
-        return {"config": config, "source_links": source_links}
+        return {
+            "config": config,
+            "context_chunks": context_chunks,
+            "source_links": source_links,
+        }
 
     def get_capabilities(self) -> Dict[str, Any]:
         """Get SD-WAN provider capabilities"""

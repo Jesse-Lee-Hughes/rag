@@ -27,6 +27,7 @@ from app.services.sdwan import SDWANService
 from app.workflows.manager import WorkflowManager
 from app.workflows.sdwan_provider import SDWANWorkflowProvider
 from app.workflows.knowledge_provider import KnowledgeBaseWorkflowProvider
+from app.workflows.servicenow_provider import ServiceNowWorkflowProvider
 
 
 # Initialize FastAPI app
@@ -48,6 +49,7 @@ workflow_manager.register_provider(SDWANWorkflowProvider())
 workflow_manager.register_provider(
     KnowledgeBaseWorkflowProvider(next(get_db()), vectorizer)
 )
+workflow_manager.register_provider(ServiceNowWorkflowProvider())
 
 
 @app.post("/ingest/pdf_url", response_model=EmbeddingListResponse)
@@ -174,18 +176,23 @@ async def text_search(search_request: TextSearchRequest, db: Session = Depends(g
                 conversation_id=conversation_id,
                 query=search_request.query_text,
                 response=response,
-                context_chunks=[str(result["context"])],
+                context_chunks=result["context"].get(
+                    "context_chunks", [str(result["context"])]
+                ),
                 metadata={"provider": provider.get_capabilities()["name"]},
             )
 
             # Extract source links from context if available
             source_links = result.get("context", {}).get("source_links", [])
-            if (
-                isinstance(result.get("context"), dict)
-                and "config" in result["context"]
-            ):
-                # For SDWAN provider, use the config context
-                context_text = str(result["context"]["config"])
+            if isinstance(result.get("context"), dict):
+                if "config" in result["context"]:
+                    # For SDWAN provider, use the config context
+                    context_text = str(result["context"]["config"])
+                elif "context_chunks" in result["context"]:
+                    # For Knowledge Base provider, use the context chunks
+                    context_text = "\n".join(result["context"]["context_chunks"])
+                else:
+                    context_text = str(result["context"])
             else:
                 context_text = str(result["context"])
 

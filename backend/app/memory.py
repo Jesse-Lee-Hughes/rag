@@ -84,5 +84,13 @@ class ConversationMemory:
         for turn in history:
             formatted_history.append(f"User: {turn.query}")
             formatted_history.append(f"Assistant: {turn.response}")
+            formatted_history.append("---")  # Add separator between turns
 
         return "\n".join(formatted_history)
+
+    def delete_conversation(self, conversation_id: str) -> None:
+        """Delete all turns of a conversation"""
+        self.db.query(Conversation).filter(
+            Conversation.conversation_id == conversation_id
+        ).delete()
+        self.db.commit()
