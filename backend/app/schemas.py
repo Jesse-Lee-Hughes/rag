@@ -37,11 +37,19 @@ class TextSearchRequest(BaseModel):
     memory_window: Optional[int] = 5  # Number of previous turns to include in context
 
 
+class SourceLink(BaseModel):
+    provider: str
+    link: str
+    metadata: Optional[Dict[str, Any]] = None
+
+
 class LLMResponse(BaseModel):
     answer: str
     sources: List[EmbeddingResponse]
     context_chunks: List[str]
     conversation_id: Optional[str] = None
+    provider: Optional[str] = None
+    source_links: Optional[List[SourceLink]] = None
 
 
 class ConversationTurn(BaseModel):
@@ -68,3 +76,15 @@ class ConversationListItem(BaseModel):
 
 class ConversationListResponse(BaseModel):
     conversations: List[ConversationListItem]
+
+
+class NetworkQueryRequest(BaseModel):
+    query: str
+    org_id: Optional[str] = None
+    include_config: bool = False
+
+
+class NetworkResponse(BaseModel):
+    answer: str
+    config_snapshot: Optional[Dict[str, Any]] = None
+    timestamp: str

@@ -1,7 +1,9 @@
-from typing import Dict, Type
+from typing import Dict, Type, Any
 from .base import LLMProvider
 from .openai_provider import OpenAIProvider
 from .azure_provider import AzureOpenAIProvider
+from .mock_provider import MockLLMProvider
+import os
 
 
 class LLMFactory:
@@ -14,12 +16,12 @@ class LLMFactory:
     }
 
     @classmethod
-    def create_provider(cls, provider_name: str, **kwargs) -> LLMProvider:
+    def create_provider(cls, provider_type: str = "azure", **kwargs) -> LLMProvider:
         """
         Create an instance of the specified LLM provider.
 
         Args:
-            provider_name: Name of the provider to create (e.g., "openai", "azure")
+            provider_type: Type of the provider to create (e.g., "openai", "azure", "mock")
             **kwargs: Additional arguments to pass to the provider's constructor
 
         Returns:
@@ -28,13 +30,18 @@ class LLMFactory:
         Raises:
             ValueError: If the provider is not found
         """
-        provider_class = cls._providers.get(provider_name.lower())
-        if not provider_class:
-            raise ValueError(
-                f"Provider '{provider_name}' not found. Available providers: {list(cls._providers.keys())}"
-            )
-
-        return provider_class(**kwargs)
+        if provider_type == "azure":
+            try:
+                return AzureOpenAIProvider(**kwargs)
+            except ValueError as e:
+                print(
+                    "Warning: Azure OpenAI credentials not found, using mock provider"
+                )
+                return MockLLMProvider()
+        elif provider_type == "mock":
+            return MockLLMProvider()
+        else:
+            raise ValueError(f"Unknown provider type: {provider_type}")
 
     @classmethod
     def register_provider(cls, name: str, provider_class: Type[LLMProvider]):

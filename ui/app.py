@@ -100,8 +100,6 @@ with st.sidebar:
     st.markdown(f"**Total Embeddings:** {st.session_state.embedding_count}")
     st.markdown(f"**Total Conversations:** {st.session_state.conversation_count}")
 
-
-
     st.markdown("---")
 
     # Conversation history
@@ -173,22 +171,26 @@ if prompt := st.chat_input("Ask me anything."):
             # Display LLM response in main chat
             with st.chat_message("assistant"):
                 st.write(llm_response)
+                if data.get("provider"):
+                    st.markdown(f"*Source: {data['provider']}*")
 
             # Update sidebar with sources and context
             with source_container:
-                st.markdown("### Source Documents")
-                unique_sources = {
-                    result["source_document"]: result.get("metadata", {}).get(
-                        "similarity_score", 0
-                    )
-                    for result in search_results
-                }
-
-                with st.expander("📚 Source Links"):
-                    for source, similarity in unique_sources.items():
-                        st.markdown(
-                            f"🔗 [{source}]({source}) (Relevance: {similarity:.1%})"
-                        )
+                st.markdown("### Source Information")
+                if data.get("source_links"):
+                    with st.expander("🔗 Source Links"):
+                        for link in data["source_links"]:
+                            metadata_str = ""
+                            if link.get("metadata"):
+                                metadata_items = [
+                                    f"{k}: {v}" for k, v in link["metadata"].items()
+                                ]
+                                metadata_str = f" ({', '.join(metadata_items)})"
+                            st.markdown(
+                                f"**{link['provider']}**: [{link['link']}]({link['link']}){metadata_str}"
+                            )
+                else:
+                    st.info("No source links available")
 
             with context_container:
                 st.markdown("### Context Chunks")

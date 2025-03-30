@@ -11,6 +11,9 @@ from app.schemas import (
     LLMResponse,
     ConversationHistory,
     ConversationListResponse,
+    NetworkResponse,
+    NetworkQueryRequest,
+    SourceLink,
 )
 from llama_index.core import Document
 import os
@@ -19,6 +22,10 @@ import tempfile
 from app.llm.factory import LLMFactory
 from app.memory import ConversationMemory
 from datetime import datetime
+from app.services.sdwan import SDWANService
+from app.workflows.manager import WorkflowManager
+from app.workflows.sdwan_provider import SDWANWorkflowProvider
+from app.workflows.knowledge_provider import KnowledgeBaseWorkflowProvider
 
 
 # Initialize FastAPI app
@@ -31,9 +38,13 @@ Base.metadata.create_all(bind=engine)
 vectorizer = LlamaVectorizer()
 
 # Initialize LLM provider
-llm_provider = LLMFactory.create_provider(
-    "azure", model=os.getenv("AZURE_OPENAI_MODEL", "gpt-35-turbo")
-)
+llm_provider = LLMFactory.create_provider("azure")
+sdwan_service = SDWANService(base_url="http://mock_sdwan:8080")
+
+# Initialize workflow manager
+workflow_manager = WorkflowManager()
+workflow_manager.register_provider(SDWANWorkflowProvider())
+workflow_manager.register_provider(KnowledgeBaseWorkflowProvider(get_db(), vectorizer))
 
 
 @app.post("/ingest/pdf_url", response_model=EmbeddingListResponse)
@@ -131,13 +142,65 @@ def vector_search(search_request: VectorSearchRequest, db: Session = Depends(get
 
 @app.post("/search/text/", response_model=LLMResponse)
 async def text_search(search_request: TextSearchRequest, db: Session = Depends(get_db)):
+    """Handle text queries with workflow routing"""
     try:
-        # Initialize memory manager
+        # Initialize memory manager first
         memory = ConversationMemory(db)
-
-        # Create or use existing conversation ID
         conversation_id = search_request.conversation_id or memory.create_conversation()
 
+        # Register knowledge provider with current session
+        workflow_manager.register_provider(
+            KnowledgeBaseWorkflowProvider(db, vectorizer)
+        )
+
+        # Check for workflow provider
+        provider = await workflow_manager.get_provider(search_request.query_text)
+
+        if provider:
+            # Handle query with memory support
+            result = await provider.handle_query(
+                search_request.query_text,
+                memory=memory,
+                conversation_id=conversation_id,
+            )
+
+            response = await llm_provider.generate_response(
+                query=search_request.query_text,
+                context=[str(result["context"])],
+                system_prompt=result["prompt"],
+                temperature=0.5,
+            )
+
+            # Store the interaction in memory
+            memory.add_interaction(
+                conversation_id=conversation_id,
+                query=search_request.query_text,
+                response=response,
+                context_chunks=[str(result["context"])],
+                metadata={"provider": provider.get_capabilities()["name"]},
+            )
+
+            # Extract source links from context if available
+            source_links = result.get("context", {}).get("source_links", [])
+            if (
+                isinstance(result.get("context"), dict)
+                and "config" in result["context"]
+            ):
+                # For SDWAN provider, use the config context
+                context_text = str(result["context"]["config"])
+            else:
+                context_text = str(result["context"])
+
+            return LLMResponse(
+                answer=response,
+                sources=[],  # No document sources for API data
+                context_chunks=[context_text],
+                conversation_id=conversation_id,
+                provider=provider.get_capabilities()["name"],
+                source_links=source_links,
+            )
+
+        # Fall back to RAG for document-based queries
         # Get relevant documents using vector search
         doc = Document(text=search_request.query_text.lower())
         nodes = vectorizer.parser.get_nodes_from_documents([doc])
@@ -158,20 +221,38 @@ async def text_search(search_request: TextSearchRequest, db: Session = Depends(g
         )
 
         # Format results and filter by similarity
-        formatted_results = [
-            EmbeddingResponse(
-                id=result.E5Embedding.id,
-                text=result.E5Embedding.text,
-                vector=result.E5Embedding.vector,
-                source_document=result.E5Embedding.source_document,
-                metadata={
-                    **(result.E5Embedding.get_metadata() or {}),
-                    "similarity_score": float(result.similarity),
-                },
-            )
-            for result in results
-            if float(result.similarity) > 0.8
-        ]
+        formatted_results = []
+        source_links = []
+        for result in results:
+            if float(result.similarity) > 0.8:
+                formatted_results.append(
+                    EmbeddingResponse(
+                        id=result.E5Embedding.id,
+                        text=result.E5Embedding.text,
+                        vector=result.E5Embedding.vector,
+                        source_document=result.E5Embedding.source_document,
+                        metadata={
+                            **(result.E5Embedding.get_metadata() or {}),
+                            "similarity_score": float(result.similarity),
+                        },
+                    )
+                )
+
+                # Create source link for each document
+                source_links.append(
+                    SourceLink(
+                        provider="Knowledge Base",
+                        link=result.E5Embedding.source_document,
+                        metadata={
+                            "similarity": float(result.similarity),
+                            "document_type": (
+                                result.E5Embedding.get_metadata().get("type", "unknown")
+                                if result.E5Embedding.get_metadata()
+                                else "unknown"
+                            ),
+                        },
+                    )
+                )
 
         # Extract text and similarity scores from results for LLM context
         context = [result.text for result in formatted_results]
@@ -204,6 +285,7 @@ async def text_search(search_request: TextSearchRequest, db: Session = Depends(g
             {history_text}
             
             I'll explicitly acknowledge this and provide the best information I can, while being clear about the source of my information."""
+
         # Generate response using LLM
         response = await llm_provider.generate_response(
             query=search_request.query_text,
@@ -227,6 +309,8 @@ async def text_search(search_request: TextSearchRequest, db: Session = Depends(g
             sources=formatted_results,
             context_chunks=context,
             conversation_id=conversation_id,
+            provider="Knowledge Base",
+            source_links=source_links,
         )
 
     except Exception as e:
@@ -334,6 +418,20 @@ def delete_conversation(conversation_id: str, db: Session = Depends(get_db)):
         )
 
 
+@app.delete("/conversations")
+def delete_all_conversations(db: Session = Depends(get_db)):
+    """Delete all conversations and their turns."""
+    try:
+        db.query(Conversation).delete()
+        db.commit()
+        return {"message": "Successfully deleted all conversations"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=400, detail=f"Error deleting all conversations: {str(e)}"
+        )
+
+
 @app.get("/conversations", response_model=ConversationListResponse)
 def list_conversations(db: Session = Depends(get_db)):
     """List all conversations with their latest interaction."""
@@ -361,3 +459,37 @@ def list_conversations(db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=400, detail=f"Error listing conversations: {str(e)}"
         )
+
+
+@app.post("/network/query", response_model=NetworkResponse)
+async def network_query(request: NetworkQueryRequest, db: Session = Depends(get_db)):
+    """Network configuration specific queries"""
+    try:
+        config = await sdwan_service.get_organization_config()
+
+        prompt = """You are a network configuration assistant. Analyze the provided 
+        network state and configuration to answer questions about VLANs, IP addressing,
+        and device status. Be specific and reference actual configuration details."""
+
+        response = await llm_provider.generate_response(
+            query=request.query,
+            context=[str(config)],
+            system_prompt=prompt,
+            temperature=0.5,
+        )
+
+        return NetworkResponse(
+            answer=response,
+            config_snapshot=config if request.include_config else None,
+            timestamp=datetime.now().isoformat(),
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=400, detail=f"Error processing network query: {str(e)}"
+        )
+
+
+@app.get("/workflows/capabilities")
+async def get_workflow_capabilities():
+    """Get available workflow capabilities"""
+    return await workflow_manager.get_capabilities()
