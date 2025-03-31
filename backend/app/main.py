@@ -45,11 +45,11 @@ sdwan_service = SDWANService(base_url="http://mock_sdwan:8080")
 
 # Initialize workflow manager
 workflow_manager = WorkflowManager()
+workflow_manager.register_provider(ServiceNowWorkflowProvider())
 workflow_manager.register_provider(SDWANWorkflowProvider())
 workflow_manager.register_provider(
     KnowledgeBaseWorkflowProvider(next(get_db()), vectorizer)
 )
-workflow_manager.register_provider(ServiceNowWorkflowProvider())
 
 
 @app.post("/ingest/pdf_url", response_model=EmbeddingListResponse)
