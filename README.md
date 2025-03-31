@@ -82,48 +82,7 @@ AZURE_OPENAI_API_VERSION=2025-01-01-preview
 AZURE_OPENAI_MODEL=gpt-35-turbo
 ```
 
-## Installation
-
-### Option 1: Local Setup
-
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd rag
-```
-
-2. Set up the backend:
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-3. Set up the frontend:
-```bash
-cd ../ui
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-4. Set up the database:
-```bash
-cd ../db
-# Run the initialization script
-./init-db.sh
-```
-
-### Option 2: Docker Setup
-
-1. Build and start all services:
-```bash
-docker-compose up --build
-```
-
 ## Running the System
-
 
 The project includes a `dev.sh` script that manages the development environment using Docker Compose. This is the recommended way to run the system in development.
 
