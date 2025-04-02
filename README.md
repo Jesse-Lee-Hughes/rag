@@ -101,6 +101,7 @@ chmod +x dev.sh
 This will start all services:
 - PostgreSQL database with pgvector
 - Mock SD-WAN API
+- Mock Change Request API
 - Backend API
 - Streamlit frontend
 
@@ -108,7 +109,8 @@ This will start all services:
 - Frontend: http://localhost:8501
 - Backend API: http://localhost:8000
 - API Documentation: http://localhost:8000/docs
-- Mock SD-WAN API: http://localhost:8080
+- Mock SD-WAN API: http://localhost:8081
+- Mock Change Request API: http://localhost:8082
 
 ### Development Script Commands
 
@@ -138,7 +140,6 @@ The `dev.sh` script provides several useful commands:
 ### Search and Query
 - `POST /search/`: Vector-based similarity search
 - `POST /search/text/`: Natural language text search
-- `POST /network/query`: Network configuration queries
 
 ### Conversation Management
 - `GET /conversations`: List all conversations
@@ -150,10 +151,6 @@ The `dev.sh` script provides several useful commands:
 - `GET /admin/table-counts`: Get database statistics
 - `DELETE /admin/embeddings`: Clear all embeddings
 - `GET /workflows/capabilities`: List available workflow providers
-
-### Mock SD-WAN API
-- `GET /organization/config`: Get mock organization configuration
-- Simulates network device status and configuration
 
 ## Development
 
@@ -167,13 +164,6 @@ The Streamlit interface can be customized by modifying `ui/app.py`. The interfac
 - Custom styling
 - Additional widgets
 - New interaction patterns
-
-### Testing SD-WAN Integration
-The mock API provides a simulated SD-WAN controller environment:
-- Mock device configurations
-- Network topology simulation
-- Device status monitoring
-- VLAN and interface management
 
 ## Acknowledgments
 
