@@ -4,6 +4,7 @@
 
 Mook is a powerful RAG (retrieval augmented generation) system that combines document retrieval with large language models to provide accurate, context-aware responses. The system features a FastAPI backend for document processing and vector search, and a Streamlit frontend for an intuitive user interface.
 
+[![Watch the video](https://img.youtube.com/vi/DdN5RWkfXo4/0.jpg)](https://www.youtube.com/watch?v=DdN5RWkfXo4)
 
 ## Features
 
