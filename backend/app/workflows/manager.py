@@ -1,5 +1,6 @@
 from typing import List, Dict, Any, Optional
 from .base import WorkflowProvider
+from .knowledge_provider import KnowledgeBaseWorkflowProvider
 
 
 class WorkflowManager:
@@ -7,23 +8,50 @@ class WorkflowManager:
 
     def __init__(self):
         self.providers: List[WorkflowProvider] = []
+        self.fallback_provider: Optional[WorkflowProvider] = None
 
-    def register_provider(self, provider: WorkflowProvider):
-        """Register a new workflow provider"""
-        self.providers.append(provider)
+    def register_provider(self, provider: WorkflowProvider, is_fallback: bool = False):
+        """Register a workflow provider"""
+        if is_fallback:
+            self.fallback_provider = provider
+        else:
+            self.providers.append(provider)
 
-    async def get_provider(self, query: str) -> Optional[WorkflowProvider]:
-        """Get appropriate provider for the query"""
+    async def get_provider(self, query: str) -> WorkflowProvider:
+        """Get the appropriate provider for the query"""
+        if not self.providers and not self.fallback_provider:
+            raise ValueError("No providers registered")
+
+        # First try the KnowledgeBase provider if it exists
+        knowledge_provider = next(
+            (p for p in self.providers if isinstance(p, KnowledgeBaseWorkflowProvider)),
+            None,
+        )
+        if knowledge_provider:
+            # Check if KnowledgeBase can handle with high relevance
+            if await knowledge_provider.can_handle(query):
+                return knowledge_provider
+
+        # Then try other providers
         for provider in self.providers:
-            if await provider.can_handle(query):
-                return provider
-        return None
+            if not isinstance(provider, KnowledgeBaseWorkflowProvider):
+                if await provider.can_handle(query):
+                    return provider
+
+        # If no provider matches, use fallback
+        if self.fallback_provider:
+            return self.fallback_provider
+
+        raise ValueError("No provider available for query")
 
     async def get_capabilities(self) -> Dict[str, Any]:
-        """Get capabilities of all registered providers"""
-        return {
-            "providers": [provider.get_capabilities() for provider in self.providers]
-        }
+        """Get capabilities of all providers"""
+        capabilities = []
+        for provider in self.providers:
+            capabilities.append(provider.get_capabilities())
+        if self.fallback_provider:
+            capabilities.append(self.fallback_provider.get_capabilities())
+        return {"providers": capabilities}
 
     async def get_provider_with_context(self, query: str) -> Optional[WorkflowProvider]:
         # Add provider context awareness

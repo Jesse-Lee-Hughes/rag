@@ -36,11 +36,15 @@ class WorkflowProvider(ABC):
             history = memory.get_recent_history(conversation_id)
             history_text = memory.format_memory_for_prompt(history)
 
-        # Use provider-specific prompt
-        prompt = f"""You are a specialized assistant for {self.get_capabilities()['name']}.
-        Analyze the provided context to answer questions about {', '.join(self.get_capabilities()['capabilities'])}.
+        # Build the system prompt based on provider capabilities and context
+        capabilities = self.get_capabilities()
+        prompt = f"""You are a specialized assistant for {capabilities['name']}.
+        Analyze the provided context to answer questions about {', '.join(capabilities['capabilities'])}.
         Be specific and reference actual configuration details.
-        
+
+        Provider Limitations:
+        {', '.join(capabilities['limitations'])}
+
         Previous conversation:
         {history_text}"""
 

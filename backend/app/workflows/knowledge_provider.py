@@ -1,18 +1,19 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from .base import WorkflowProvider
 from ..database import E5Embedding
 from ..utils import LlamaVectorizer
 from llama_index.core import Document
 from sqlalchemy.orm import Session
 from ..schemas import SourceLink
+from ..memory import ConversationMemory
 
 
 class KnowledgeBaseWorkflowProvider(WorkflowProvider):
-    """Provider for knowledge base document queries"""
+    """Provider for knowledge base document queries with LLM fallback"""
 
     def __init__(self, db: Session, vectorizer: LlamaVectorizer):
         self.db = db
-        self.vectorizer = LlamaVectorizer()
+        self.vectorizer = vectorizer
         self.keywords = [
             "document",
             "knowledge",
@@ -27,14 +28,12 @@ class KnowledgeBaseWorkflowProvider(WorkflowProvider):
         ]
 
     async def can_handle(self, query: str) -> bool:
-        """Check if query is related to knowledge base search"""
-        query_lower = query.lower()
-        return any(keyword in query_lower for keyword in self.keywords)
+        """This provider can handle any query, either with vector search or LLM fallback"""
+        return True
 
     async def get_context(self, query: str) -> Dict[str, Any]:
-        """Get relevant documents from vector store"""
-        # Create document from query
-        doc = Document(text=query.lower())
+        """Get context from knowledge base documents"""
+        doc = Document(text=query)
         nodes = self.vectorizer.parser.get_nodes_from_documents([doc])
         query_vector = self.vectorizer.embed_model.get_text_embedding(nodes[0].text)
 
@@ -51,59 +50,104 @@ class KnowledgeBaseWorkflowProvider(WorkflowProvider):
             .all()
         )
 
-        # Format results and create source links
-        formatted_results = []
-        source_links = []
-        for result in results:
-            if float(result.similarity) > 0.8:
-                formatted_results.append(
-                    {
-                        "text": result.E5Embedding.text,
-                        "source": result.E5Embedding.source_document,
-                        "similarity": float(result.similarity),
-                        "metadata": result.E5Embedding.get_metadata() or {},
-                    }
-                )
+        # Filter results by relevance threshold
+        relevant_results = [
+            result for result in results if float(result.similarity) > 0.8
+        ]
 
-                # Create source link for each document
-                source_links.append(
-                    SourceLink(
-                        provider="Knowledge Base",
-                        link=result.E5Embedding.source_document,
-                        metadata={
-                            "similarity": float(result.similarity),
-                            "document_type": (
-                                result.E5Embedding.get_metadata().get("type", "unknown")
-                                if result.E5Embedding.get_metadata()
-                                else "unknown"
-                            ),
-                        },
-                    )
+        if not relevant_results:
+            return {
+                "context_chunks": [],
+                "source_links": [],
+                "metadata": {
+                    "provider": "Knowledge Base",
+                    "reason": "No high relevance documents found",
+                    "fallback": True,
+                },
+            }
+
+        # Extract context and source links from vector search results
+        context_chunks = []
+        source_links = []
+        for result, similarity in relevant_results:
+            context_chunks.append(result.text)
+            source_links.append(
+                SourceLink(
+                    provider="Knowledge Base",
+                    link=result.source_document,
+                    metadata={
+                        "text": result.text[:100] + "...",
+                        "relevance": float(similarity),
+                    },
                 )
+            )
 
         return {
-            "documents": formatted_results,
-            "query": query,
-            "total_results": len(formatted_results),
+            "context_chunks": context_chunks,
             "source_links": source_links,
+            "metadata": {
+                "provider": "Knowledge Base",
+                "relevance_threshold": 0.8,
+                "num_results": len(relevant_results),
+                "fallback": False,
+            },
         }
 
     def get_capabilities(self) -> Dict[str, Any]:
         """Get knowledge base provider capabilities"""
         return {
             "name": "Knowledge Base Provider",
-            "description": "Handles queries about documents and knowledge base content",
+            "description": "Provider for knowledge base document queries with LLM fallback",
             "capabilities": [
-                "Document search",
-                "Content retrieval",
-                "Similarity-based search",
-                "Metadata filtering",
-                "Source tracking",
+                "Vector-based document search",
+                "High relevance matching (>80%)",
+                "Source document linking",
+                "Context chunking",
+                "LLM fallback for unmatched queries",
             ],
             "limitations": [
-                "Requires pre-indexed documents",
-                "Limited to text content",
-                "Similarity threshold > 0.8",
-                "Maximum 5 results per query",
+                "Requires document ingestion",
+                "Limited to ingested content",
+                "High relevance threshold",
             ],
         }
+
+    async def handle_query(
+        self,
+        query: str,
+        memory: Optional[ConversationMemory] = None,
+        conversation_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Handle the query with optional memory support and fallback handling"""
+        context = await self.get_context(query)
+
+        # Get conversation history if memory is available
+        history_text = ""
+        if memory and conversation_id:
+            history = memory.get_recent_history(conversation_id)
+            history_text = memory.format_memory_for_prompt(history)
+
+        # Build the system prompt based on provider capabilities and context
+        capabilities = self.get_capabilities()
+        prompt = f"""You are a specialized assistant for {capabilities['name']}.
+        Analyze the provided context to answer questions about {', '.join(capabilities['capabilities'])}.
+        Be specific and reference actual configuration details.
+
+        Provider Limitations:
+        {', '.join(capabilities['limitations'])}
+
+        Previous conversation:
+        {history_text}"""
+
+        # Add fallback handling if no relevant documents found
+        if context.get("metadata", {}).get("fallback", False):
+            prompt += """
+            No relevant documents were found in the knowledge base.
+            Please provide a helpful response based on your general knowledge.
+            When answering:
+            1. Be clear and concise
+            2. Provide relevant historical context when appropriate
+            3. If you're not certain about something, acknowledge the uncertainty
+            4. Focus on factual information rather than speculation"""
+
+        return {"context": context, "prompt": prompt, "history": history_text}

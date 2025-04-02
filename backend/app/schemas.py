@@ -1,6 +1,5 @@
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
-import numpy as np
 
 
 class EmbeddingCreate(BaseModel):
@@ -76,15 +75,3 @@ class ConversationListItem(BaseModel):
 
 class ConversationListResponse(BaseModel):
     conversations: List[ConversationListItem]
-
-
-class NetworkQueryRequest(BaseModel):
-    query: str
-    org_id: Optional[str] = None
-    include_config: bool = False
-
-
-class NetworkResponse(BaseModel):
-    answer: str
-    config_snapshot: Optional[Dict[str, Any]] = None
-    timestamp: str

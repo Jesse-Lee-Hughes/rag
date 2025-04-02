@@ -4,7 +4,6 @@ from llama_index.core import Document
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 import pypdf
-from sqlalchemy.exc import IntegrityError
 import hashlib
 from app.database import E5Embedding
 
@@ -87,21 +86,3 @@ class LlamaVectorizer:
                 results.append(db_entry)
 
         return results
-
-
-# # Example usage
-# try:
-#     source = "https://arxiv.org/pdf/2408.09869"  # PDF URL or path
-#     v = LlamaVectorizer()
-#
-#     text_content = v.convert_pdf_to_text(source)  # Extract text from PDF
-#     embeddings, chunks = v.process_document(text_content)  # Chunk and create embeddings
-#
-#     # Print results
-#     for i, (embedding, chunk) in enumerate(zip(embeddings, chunks), 1):
-#         print(f"Chunk {i} (length: {len(chunk)}):")
-#         print(f"Embedding shape: {len(embedding)}")  # Hugging Face embeddings are usually 768-d
-#         print(f"First 100 chars: {chunk[:100]}...\n")
-#
-# except Exception as e:
-#     print(f"An error occurred: {e}")
