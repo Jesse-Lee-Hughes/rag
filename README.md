@@ -26,7 +26,7 @@ Mook is a powerful RAG (retrieval augmented generation) system that combines doc
 
 - **Multiple Workflow Providers**
   - Knowledge Base Provider for document queries
-  - SD-WAN Provider for network configuration queries
+  - Infrastructure Configuration Provider for network configuration queries
   - Extensible provider architecture
 
 - **User Interface**
@@ -56,8 +56,8 @@ Mook is a powerful RAG (retrieval augmented generation) system that combines doc
 - Conversation history persistence
 - Automatic pgvector extension setup
 
-### Mock API (SD-WAN Integration)
-- Simulated SD-WAN controller API
+### Mock API
+- Simulated infrastructure controller API
 - Mock network configuration data
 - Device status and configuration simulation
 - Integration testing environment
