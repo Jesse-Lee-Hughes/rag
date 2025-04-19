@@ -1,5 +1,6 @@
 import pandas as pd
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from app.utils import LlamaVectorizer
 from app.database import engine, Base, get_db, E5Embedding, Conversation
@@ -23,6 +24,15 @@ from app.workflows.servicenow_provider import ServiceNowWorkflowProvider
 
 
 app = FastAPI(title="RAG Vector Search API")
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 Base.metadata.create_all(bind=engine)
 
