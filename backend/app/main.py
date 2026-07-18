@@ -1,34 +1,35 @@
-import pandas as pd
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
-from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
-from app.utils import LlamaVectorizer
-from app.database import engine, Base, get_db, E5Embedding, Conversation
-from app.schemas import (
-    EmbeddingResponse,
-    EmbeddingListResponse,
-    TextSearchRequest,
-    LLMResponse,
-    ConversationHistory,
-    ConversationListResponse
-)
-from llama_index.core import Document
 import os
 import tempfile
+
+import pandas as pd
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from llama_index.core import Document
+from sqlalchemy.orm import Session
+
+from app.database import Base, Conversation, E5Embedding, engine, get_db
 from app.llm.factory import LLMFactory
 from app.memory import ConversationMemory
+from app.schemas import (
+    ConversationHistory,
+    ConversationListResponse,
+    EmbeddingListResponse,
+    EmbeddingResponse,
+    LLMResponse,
+    TextSearchRequest,
+)
+from app.utils import LlamaVectorizer
+from app.workflows.knowledge_provider import KnowledgeBaseWorkflowProvider
 from app.workflows.manager import WorkflowManager
 from app.workflows.sdwan_provider import SDWANWorkflowProvider
-from app.workflows.knowledge_provider import KnowledgeBaseWorkflowProvider
 from app.workflows.servicenow_provider import ServiceNowWorkflowProvider
-
 
 app = FastAPI(title="RAG Vector Search API")
 
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"], 
+    allow_origins=["http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -38,7 +39,7 @@ Base.metadata.create_all(bind=engine)
 
 vectorizer = LlamaVectorizer()
 
-llm_provider = LLMFactory.create_provider("azure")
+llm_provider = LLMFactory.create_provider(os.getenv("LLM_PROVIDER", "claude"))
 
 
 workflow_manager = WorkflowManager()

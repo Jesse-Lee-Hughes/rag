@@ -31,7 +31,7 @@ stop_dev() {
 # Function to rebuild a specific service
 rebuild_service() {
     if [ -z "$1" ]; then
-        echo "Please specify a service to rebuild (backend, ui, or db)"
+        echo "Please specify a service to rebuild (backend, react-ui, or db)"
         exit 1
     fi
     echo "Rebuilding $1..."
@@ -65,7 +65,7 @@ case "$1" in
         echo "Usage: $0 {start|stop|rebuild|logs}"
         echo "  start   - Start the development environment"
         echo "  stop    - Stop the development environment"
-        echo "  rebuild - Rebuild a specific service (backend|ui|db)"
+        echo "  rebuild - Rebuild a specific service (backend|react-ui|db)"
         echo "  logs    - Show logs (optional: specify service)"
         exit 1
         ;;

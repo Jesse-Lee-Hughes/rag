@@ -1,0 +1,9 @@
+# Force LF on shell scripts and container-executed files so they don't break
+# when checked out on Windows/WSL (CRLF in a shebang => "cannot execute").
+*.sh            text eol=lf
+Dockerfile*     text eol=lf
+*.yml           text eol=lf
+*.yaml          text eol=lf
+
+# Let Git handle everything else normally.
+* text=auto

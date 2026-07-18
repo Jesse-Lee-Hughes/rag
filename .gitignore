@@ -4,3 +4,11 @@ rag
 .vscode
 __pycache__
 main.cpython*
+
+# Node / frontend build artifacts
+node_modules/
+dist/
+.vite/
+
+# Claude Code — keep shared settings, ignore personal overrides
+.claude/settings.local.json
