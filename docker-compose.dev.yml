@@ -27,23 +27,14 @@ services:
     environment:
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
+      # LLM provider: "claude" (subscription via CLI), "azure", "openai", or "mock"
+      - LLM_PROVIDER=${LLM_PROVIDER:-claude}
+      - CLAUDE_MODEL=${CLAUDE_MODEL:-}
     volumes:
       - ./backend:/app
-    networks:
-      - app-network
-
-  ui:
-    build:
-      context: ./ui
-      dockerfile: Dockerfile.dev
-    ports:
-      - "8501:8501"
-    volumes:
-      - ./ui:/app
-    depends_on:
-      - backend
-    environment:
-      - BACKEND_URL=http://backend:8000
+      # Mount the host's Claude subscription credentials so `claude -p` works
+      # inside the container (read-only). Requires `claude` login on the host.
+      - ${HOME}/.claude:/root/.claude:ro
     networks:
       - app-network
 
@@ -72,8 +63,9 @@ services:
     ports:
       - "5173:5173"
     volumes:
+      # node_modules is installed on the host (bind-mounted) rather than baked
+      # into the image — the in-image `npm install` is unreliably slow here.
       - ./react-ui:/app
-      - /app/node_modules
     environment:
       - VITE_BACKEND_URL=http://backend:8000
     networks:

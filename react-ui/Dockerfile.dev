@@ -2,11 +2,11 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm install
-
-COPY . .
+# Dev setup: source and node_modules are bind-mounted from the host
+# (see docker-compose.dev.yml). node_modules is installed on the host once
+# with `npm install` because the in-image install is unreliably slow here.
+# If node_modules is missing at start, the container installs it on boot.
 
 EXPOSE 5173
 
-CMD ["npm", "run", "dev", "--", "--host"] 
+CMD ["sh", "-c", "[ -d node_modules ] || npm install; npm run dev -- --host"]

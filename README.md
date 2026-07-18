@@ -2,7 +2,9 @@
 
 **Disclaimer this is a proof of concept and in no way intended to be run as production code.** 
 
-Mook is a powerful RAG (retrieval augmented generation) system that combines document retrieval with large language models to provide accurate, context-aware responses. The system features a FastAPI backend for document processing and vector search, and a Streamlit frontend for an intuitive user interface.
+Mook is a powerful RAG (retrieval augmented generation) system that combines document retrieval with large language models to provide accurate, context-aware responses. The system features a FastAPI backend for document processing and vector search, and a React (Vite) frontend for an intuitive user interface.
+
+By default the backend answers using your **Claude subscription** via the `claude -p` CLI (no API key / token bucket required). Azure OpenAI, OpenAI, and an offline mock provider are also supported — see [Environment Variables](#environment-variables).
 
 [![Watch the video](https://img.youtube.com/vi/DdN5RWkfXo4/0.jpg)](https://www.youtube.com/watch?v=DdN5RWkfXo4)
 
@@ -44,7 +46,7 @@ Mook is a powerful RAG (retrieval augmented generation) system that combines doc
 - Multiple workflow providers
 - RESTful API endpoints
 
-### Frontend (Streamlit)
+### Frontend (React + Vite)
 - Interactive chat interface
 - Document upload and management
 - Conversation history viewing
@@ -64,25 +66,41 @@ Mook is a powerful RAG (retrieval augmented generation) system that combines doc
 
 ## Prerequisites
 
-- Python 3.8+
+- Python 3.12
 - PostgreSQL with pgvector extension
-- Azure OpenAI API access (or OpenAI API)
-- Docker (optional, for containerized deployment)
+- An LLM provider — one of:
+  - **Claude subscription** with the [Claude Code CLI](https://docs.claude.com/en/docs/claude-code) installed and logged in (default; no API key)
+  - Azure OpenAI or OpenAI API access
+- Docker (recommended, for containerized deployment)
 
 ## Environment Variables
 
-Create a `.env` file in the backend directory with the following variables:
+Copy `.env.example` to `.env` and fill it in. Key settings:
 
 ```env
 # Database
-DATABASE_URL=postgresql://user:password@localhost:5432/rag_db
+DATABASE_URL=postgresql://user:password@db:5432/rag_db
 
-# Azure OpenAI
+# LLM provider: claude (default) | azure | openai | mock
+LLM_PROVIDER=claude
+
+# Claude provider (uses the `claude -p` CLI + your subscription; no API key)
+CLAUDE_MODEL=            # optional model alias, e.g. claude-sonnet-5
+
+# Azure OpenAI (only if LLM_PROVIDER=azure)
 AZURE_OPENAI_API_KEY=your_api_key
 AZURE_OPENAI_ENDPOINT=your_endpoint
 AZURE_OPENAI_API_VERSION=2025-01-01-preview
 AZURE_OPENAI_MODEL=gpt-35-turbo
 ```
+
+### Claude provider in Docker
+
+The backend container runs `claude -p` to reach your subscription. `docker-compose.dev.yml`
+installs the CLI in the image and mounts your host credentials read-only
+(`${HOME}/.claude:/root/.claude:ro`), so you must have run `claude` (logged in) on the
+host first. Prefer not to mount credentials? Run the backend natively with `uvicorn`
+where `claude` is already authenticated, or set `LLM_PROVIDER=mock` for offline use.
 
 ## Running the System
 
@@ -103,10 +121,10 @@ This will start all services:
 - Mock SD-WAN API
 - Mock Change Request API
 - Backend API
-- Streamlit frontend
+- React frontend
 
 3. Access the application:
-- Frontend: http://localhost:8501
+- Frontend: http://localhost:5173
 - Backend API: http://localhost:8000
 - API Documentation: http://localhost:8000/docs
 - Mock SD-WAN API: http://localhost:8081
@@ -124,7 +142,7 @@ The `dev.sh` script provides several useful commands:
 ./dev.sh stop
 
 # Rebuild a specific service
-./dev.sh rebuild [service]  # service can be: backend, ui, or db
+./dev.sh rebuild [service]  # service can be: backend, react-ui, or db
 
 # View logs
 ./dev.sh logs [service]     # service is optional
@@ -160,15 +178,14 @@ The `dev.sh` script provides several useful commands:
 3. Register the provider in `main.py`
 
 ### Customizing the UI
-The Streamlit interface can be customized by modifying `ui/app.py`. The interface supports:
-- Custom styling
-- Additional widgets
-- New interaction patterns
+The React interface lives in `react-ui/` (Vite + MUI). Components are under
+`react-ui/src/components/` (Chat, Search, Sidebar) and the API client in
+`react-ui/src/services/api.ts`.
 
 ## Acknowledgments
 
 - FastAPI for the backend framework
-- Streamlit for the frontend framework
+- React + Vite for the frontend framework
 - LlamaIndex for document processing
-- Azure OpenAI for language model capabilities
+- Claude (via the Claude Code CLI), with Azure OpenAI / OpenAI as alternatives, for language model capabilities
 - PostgreSQL and pgvector for vector storage 

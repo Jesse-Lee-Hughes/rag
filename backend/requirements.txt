@@ -1,33 +1,36 @@
+# Pinned to a mutually-compatible set resolved with `uv pip compile` (2026-07).
+# Top-level pins for reproducible builds; re-resolve when upgrading.
+
 # Database and ORM
-sqlalchemy
-psycopg2-binary
-pgvector
+sqlalchemy==2.0.51
+psycopg2-binary==2.9.12
+pgvector==0.5.0
 
 # FastAPI and related
-fastapi
-uvicorn
-pydantic
+fastapi==0.139.2
+uvicorn==0.51.0
+pydantic==2.13.4
 
 # Vector operations
-numpy
+numpy==2.5.1
 
 # Optional but recommended
-python-dotenv
-python-multipart>=0.0.5
+python-dotenv==1.2.2
+python-multipart==0.0.32
 
 # Tokenization & Transformation
-torch
-transformers
+torch==2.13.0
+transformers==5.14.1
 
 # LLM
-llama-core
-llama-index
-llama-index-embeddings-huggingface
+llama-core==0.4.2
+llama-index==0.14.23
+llama-index-embeddings-huggingface==0.7.0
 
 # document analysis
-pypdf
-openpyxl
+pypdf==6.14.2
+openpyxl==3.1.5
 
 # Added from the code block
-pandas
-openai
+pandas==3.0.3
+openai==2.46.0
